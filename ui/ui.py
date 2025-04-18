@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, simpledialog
 from core.plotter import Plotter, ProcessedSignalPlot
 from core import generation, signal_utils, settings
 
@@ -43,7 +43,8 @@ class SignalProcessingApp:
         self.operation_selection.pack(side="left", padx=5)
         self.operation_selection.bind("<<ComboboxSelected>>", self.execute_control)
 
-        ttk.Button(self.top_frame, text="Show Result", command=self.generate_result).pack(pady=10)
+        ttk.Button(self.top_frame, text="Show Result", command=self.generate_result).pack(side="right", pady=10)
+        ttk.Button(self.top_frame, text="Generate", command=self.generate_synthetic).pack(side="right", pady=10)
 
 
         # === Frame principal ===
@@ -57,8 +58,6 @@ class SignalProcessingApp:
         # Panel fijo (parte superior del panel izquierdo)
         self.left_fixed_panel = ttk.Frame(self.left_panel_container)
         self.left_fixed_panel.pack(fill="x")
-
-        ttk.Button(self.left_fixed_panel, text="Generate", command=self.generate_synthetic).pack(pady=10)
 
         ttk.Label(self.left_fixed_panel, text="Signal:").pack(pady=(0, 5))
         self.signal_selector = ttk.Combobox(
@@ -77,7 +76,7 @@ class SignalProcessingApp:
             width=10
         )
         self.amp_selector.pack(padx=5, pady=(0, 10))
-        self.amp_selector.bind("<<ComboboxSelected>>", self.update_amplitude_controls)
+        self.amp_selector.bind("<<ComboboxSelected>>")
 
         def create_labeled_entry(parent, label_text, default_value):
             var = tk.DoubleVar(value=default_value)
@@ -85,9 +84,11 @@ class SignalProcessingApp:
             ttk.Entry(parent, textvariable=var, width=10).pack(padx=5, pady=(0, 10))
             return var
 
-        self.freq_var = create_labeled_entry(self.left_fixed_panel, "Fs (Hz):", 60.0)
+        self.fa_var = create_labeled_entry(self.left_fixed_panel, "Analog Freq (Hz):", 60.0)
+        self.fs_var = create_labeled_entry(self.left_fixed_panel, "Sampling Freq (Hz):", 180.0)
         self.gain_var = create_labeled_entry(self.left_fixed_panel, "Gain:", 1.0)
-        self.duration_var = create_labeled_entry(self.left_fixed_panel, "Duration: (s)", 3)
+        self.start_var = create_labeled_entry(self.left_fixed_panel, "start:", -4)
+        self.duration_var = create_labeled_entry(self.left_fixed_panel, "Duration: (s)", 1.5)
         self.t_shift_var = create_labeled_entry(self.left_fixed_panel, "Time Shift:", 0)
         self.sampling_var = create_labeled_entry(self.left_fixed_panel, "Sampling:", 0)
 
@@ -146,20 +147,23 @@ class SignalProcessingApp:
         signal = self.signal_selector.get()
         amp = self.amp_selector.get()
         synthetic = self.signal_synthetic.get()
-        freq = self.freq_var.get()
-        fs=44100
+        fa = self.fa_var.get()
+        fs = self.fs_var.get()
         gain = self.gain_var.get()
-        duration = 1.0
+        n0 = self.start_var.get()
+        duration = self.duration_var.get()
+        shift = self.t_shift_var.get()
         try:
-            self.n, self.y = generation.signal_selector(synthetic, freq, fs, gain, duration)
-            self.y = signal_utils.amplitud_selector(amp, self.y, 0)
+            self.n, self.y = generation.signal_selector(synthetic, fa, fs, gain, n0, duration, shift)
+            self.y = signal_utils.amplitud_selector(amp, self.y)
         except:
             print("Error generating signal")
 
         self.plotter.update_plot(signal, self.n, self.y)
 
     def generate_result(self):
-        self.processed_plot.show(self.root, self.n, self.y)
+        fs = self.fa_var.get()
+        self.processed_plot.show(self.root, self.n, self.y, fs)
 
     def execute_control(self, event=None):
         action = self.control_selection.get()
@@ -171,19 +175,7 @@ class SignalProcessingApp:
         elif action == "Play":
             print("Reproduciendo...")
         elif action == "Save":
-            print("Guardando...")
-
-    def update_amplitude_controls(self, event=None):
-        for widget in self.left_dynamic_op_panel.winfo_children():
-            widget.destroy()
-
-        selected_op = self.amp_selector.get()
-        if selected_op in (settings.opera_amp[0], settings.opera_amp[2], settings.opera_amp[4]):
-            self.cons_var = tk.DoubleVar(value=3.0)
-            ttk.Label(self.left_dynamic_op_panel, text="Constant:").pack(pady=(10, 0))
-            ttk.Entry(self.left_dynamic_op_panel, textvariable=self.cons_var, width=10).pack()
-
-
+            print("Guardando...") 
 
 if __name__ == "__main__":
     root = tk.Tk()

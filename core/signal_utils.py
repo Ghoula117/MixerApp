@@ -1,22 +1,26 @@
 import numpy as np
+from tkinter import simpledialog
 from core import settings
 
-def amplitud_scaling(signal: list[float] | np.ndarray, gain: float)-> np.ndarray: 
+def amplitud_scaling(signal: list[float] | np.ndarray)-> np.ndarray: 
+    gain = simpledialog.askfloat  ("Constant Value:", "Value:", initialvalue=1.0)
     return gain * np.array(signal)
 
-def amplitud_log(signal: list[float] | np.ndarray, *args)-> np.ndarray:
+def amplitud_log(signal: list[float] | np.ndarray)-> np.ndarray:
     return np.log(signal)
 
-def amplitud_exponential(signal: list[float] | np.ndarray, power: float)-> np.ndarray:
+def amplitud_exponential(signal: list[float] | np.ndarray)-> np.ndarray:
+    power = simpledialog.askfloat  ("Constant Value:", "Value:", initialvalue=1.0)
     return power**np.array(signal)
 
-def amplitud_inversion(signal: list[float] | np.ndarray, *args)-> np.ndarray:
+def amplitud_inversion(signal: list[float] | np.ndarray)-> np.ndarray:
     return 1/np.array(signal)
 
-def amplitud_power(signal: list[float] | np.ndarray, power: float)-> np.ndarray:
+def amplitud_power(signal: list[float] | np.ndarray)-> np.ndarray:
+    power = simpledialog.askfloat  ("Constant Value:", "Value:", initialvalue=1.0)
     return np.array(signal)**power
 
-def amplitud_none(signal: list[float] | np.ndarray, *args)-> np.ndarray:
+def amplitud_none(signal: list[float] | np.ndarray)-> np.ndarray:
     return np.array(signal)
 
 options = {
@@ -30,10 +34,9 @@ options = {
 
 def amplitud_selector(
         name: str, 
-        signal: list[float] | np.ndarray,
-        var: float)-> np.ndarray:
+        signal: list[float] | np.ndarray,)-> np.ndarray:
     
-    y = options[name](signal, var)
+    y = options[name](signal)
     if np.isinf(y).any():
         print("Advertencia", "Verificar: Algún Resultado es Infinito")
     if np.isnan(y).any():
