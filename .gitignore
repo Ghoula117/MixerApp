@@ -1,1 +1,27 @@
-.pyc
+#archivos compilados de Python
+__pycache__/
+*.py[cod]
+
+#entorno virtual local
+.venv/
+
+# configuraciones específicas del editor
+.vscode/
+
+#temporales
+*.log
+*.swp
+*.tmp
+*~
+
+#archivos de entorno
+.env
+
+#binarios
+*.sqlite3
+*.db
+
+#
+*.egg-info/
+dist/
+build/
