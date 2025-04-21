@@ -4,7 +4,7 @@ __pycache__/
 
 #entorno virtual local
 .venv/
-
+venv/
 # configuraciones específicas del editor
 .vscode/
 

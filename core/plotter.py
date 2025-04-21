@@ -22,7 +22,7 @@ class Plotter:
 
         ax.set_title(signal_name)
         ax.grid(True)
-        ax.stem(x_data, y_data, use_line_collection=True)
+        ax.stem(x_data, y_data)
 
         self.canvases[signal_name].draw()
 
@@ -48,7 +48,7 @@ class ProcessedSignalPlot:
         else:
             self.ax.set_xlabel("Muestras")
 
-        self.ax.stem(x_data, y_data, use_line_collection=True)
+        self.ax.stem(x_data, y_data)
         self.ax.set_title("Processed Signal")
         self.ax.grid(True)
         self.ax.set_xlim([min(x_data), max(x_data)])

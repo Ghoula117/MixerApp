@@ -6,30 +6,35 @@ def signal_impulse(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.nd
     n = np.arange(n0, n0 + int(fs * duration))
     y = np.zeros_like(n)
     y[n == shift] = gain
+    y = y.astype(np.float32)
     return n, y
 
 def signal_step(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.ndarray]:
     n = np.arange(n0, n0 + int(fs * duration))
     y = np.zeros_like(n) 
     y[n >= shift] = gain 
+    y = y.astype(np.float32)
     return n, y
 
 def signal_ramp(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.ndarray]:
     n = np.arange(n0, n0 + int(fs * duration))
     y = np.zeros_like(n) 
     y[n >= shift] = gain*(n[n >= shift]-shift) 
+    y = y.astype(np.float32)
     return n, y
 
 def signal_triangular(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.ndarray]:
     n = np.arange(n0, n0 + int(fs * duration))
     period = int(fs / fa)
     y = gain * 2 * np.abs(2 * (n / period - np.floor(n / period + 0.5)))
+    y = y.astype(np.float32)
     return n, y
 
 def signal_sawtooth(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.ndarray]:
     n = np.arange(n0, n0 + int(fs * duration))
     period = int(fs / fa)
     y = gain * 2 * ((n / period) - np.floor(0.5 + n / period))
+    y = y.astype(np.float32)
     return n, y
 
 def signal_sine(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.ndarray]:
@@ -37,6 +42,7 @@ def signal_sine(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.ndarr
     n = np.arange(n0, n0 + int(fs * duration))
     g = 2 * np.pi * fa * (n + shift) / fs
     y = gain * np.sin(g + An)
+    y = y.astype(np.float32)
     return n, y
 
 def signal_cosine(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.ndarray]:
@@ -44,6 +50,7 @@ def signal_cosine(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.nda
     n = np.arange(n0, n0 + int(fs * duration))
     g = 2 * np.pi * fa * (n + shift) / fs
     y = gain * np.cos(g + An)
+    y = y.astype(np.float32)
     return n, y
 
 def signal_sinc(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.ndarray]:
@@ -51,6 +58,7 @@ def signal_sinc(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.ndarr
     n = np.arange(n0, n0 + int(fs * duration))
     g = 2 * np.pi * fa * (n + shift) / fs
     y = gain * np.sinc(g + An)
+    y = y.astype(np.float32)
     return n, y
 
 def signal_chirp(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.ndarray]:
@@ -70,7 +78,7 @@ def signal_chirp(fa, fs, gain, n0, duration, shift) -> tuple[np.ndarray, np.ndar
             break
         phase =  K* B**(n + shift) / fs + 2 * np.pi * fa
         y = gain * np.sin(phase + An)
-
+    y = y.astype(np.float32)
     return n, y
 
 options = {
@@ -95,13 +103,6 @@ def signal_selector(
     duration: float,
     shift: float) -> tuple[np.ndarray, np.ndarray]:
 
-
-
     n, y = options[name](fa, fs, gain, n0, duration, shift)
-
-    if np.isinf(y).any():
-        print("Advertencia: Hay valores infinitos en la señal.")
-    if np.isnan(y).any():
-        print("Advertencia: Hay valores NaN en la señal.")
 
     return n, y

@@ -1,7 +1,7 @@
 import tkinter as tk
-from tkinter import ttk, simpledialog
+from tkinter import ttk, messagebox
 from core.plotter import Plotter, ProcessedSignalPlot
-from core import generation, signal_utils, settings
+from core import generation, signal_utils, audio_utils , file_manager, math, settings
 
 class SignalProcessingApp:
     def __init__(self, root):
@@ -22,6 +22,7 @@ class SignalProcessingApp:
         )
         self.signal_selection.pack(side="left", padx=5)
         self.signal_selection.bind("<<ComboboxSelected>>", self.configure_signal)
+        self.signal_selection.set(settings.source_select[0])
 
         ttk.Label(self.top_frame, text="Control:").pack(side="left", padx=5)
         self.control_selection = ttk.Combobox(
@@ -31,7 +32,7 @@ class SignalProcessingApp:
             width=7
         )
         self.control_selection.pack(side="left", padx=5)
-        self.control_selection.bind("<<ComboboxSelected>>", self.execute_control)
+        self.control_selection.bind("<<ComboboxSelected>>", self.configure_control)
 
         ttk.Label(self.top_frame, text="Operation:").pack(side="left", padx=5)
         self.operation_selection = ttk.Combobox(
@@ -41,11 +42,9 @@ class SignalProcessingApp:
             width=20
         )
         self.operation_selection.pack(side="left", padx=5)
-        self.operation_selection.bind("<<ComboboxSelected>>", self.execute_control)
+        self.operation_selection.bind("<<ComboboxSelected>>", self.configure_operations)
 
         ttk.Button(self.top_frame, text="Show Result", command=self.generate_result).pack(side="right", pady=10)
-        ttk.Button(self.top_frame, text="Generate", command=self.generate_synthetic).pack(side="right", pady=10)
-
 
         # === Frame principal ===
         self.main_frame = ttk.Frame(root)
@@ -67,8 +66,9 @@ class SignalProcessingApp:
             width=5
         )
         self.signal_selector.pack(padx=5, pady=(0, 10))
+        self.signal_selector.set(settings.GRAPH[0])
 
-        ttk.Label(self.left_fixed_panel, text="Operations in amplitude:").pack(pady=(0, 5))
+        ttk.Label(self.left_fixed_panel, text="Amplitude:").pack(pady=(0, 5))
         self.amp_selector = ttk.Combobox(
             self.left_fixed_panel,
             values=settings.opera_amp,
@@ -76,23 +76,16 @@ class SignalProcessingApp:
             width=10
         )
         self.amp_selector.pack(padx=5, pady=(0, 10))
-        self.amp_selector.bind("<<ComboboxSelected>>")
+        self.amp_selector.set(settings.opera_amp[5])
 
-        def create_labeled_entry(parent, label_text, default_value):
-            var = tk.DoubleVar(value=default_value)
-            ttk.Label(parent, text=label_text).pack(pady=(0, 5))
-            ttk.Entry(parent, textvariable=var, width=10).pack(padx=5, pady=(0, 10))
-            return var
+        self.fa_var = self.create_labeled_entry(self.left_fixed_panel, "Analog Freq (Hz):", 60.0)
+        self.fs_var = self.create_labeled_entry(self.left_fixed_panel, "Sampling Freq (Hz):", 180.0)
+        self.gain_var = self.create_labeled_entry(self.left_fixed_panel, "Gain:", 1.0)
+        self.start_var = self.create_labeled_entry(self.left_fixed_panel, "start:", -4)
+        self.duration_var = self.create_labeled_entry(self.left_fixed_panel, "Duration: (s)", 1.5)
+        self.t_shift_var = self.create_labeled_entry(self.left_fixed_panel, "Time Shift:", 0)
+        self.sampling_var = self.create_labeled_entry(self.left_fixed_panel, "Sampling:", 0)
 
-        self.fa_var = create_labeled_entry(self.left_fixed_panel, "Analog Freq (Hz):", 60.0)
-        self.fs_var = create_labeled_entry(self.left_fixed_panel, "Sampling Freq (Hz):", 180.0)
-        self.gain_var = create_labeled_entry(self.left_fixed_panel, "Gain:", 1.0)
-        self.start_var = create_labeled_entry(self.left_fixed_panel, "start:", -4)
-        self.duration_var = create_labeled_entry(self.left_fixed_panel, "Duration: (s)", 1.5)
-        self.t_shift_var = create_labeled_entry(self.left_fixed_panel, "Time Shift:", 0)
-        self.sampling_var = create_labeled_entry(self.left_fixed_panel, "Sampling:", 0)
-
-        
         # Panel dinámico contenedor
         self.left_dynamic_panel = ttk.Frame(self.left_panel_container)
         self.left_dynamic_panel.pack(fill="both", expand=True)
@@ -101,8 +94,8 @@ class SignalProcessingApp:
         self.left_dynamic_signal_panel = ttk.Frame(self.left_dynamic_panel)
         self.left_dynamic_signal_panel.pack(fill="x")
 
-        self.left_dynamic_op_panel = ttk.Frame(self.left_dynamic_panel)
-        self.left_dynamic_op_panel.pack(fill="x")
+        self.up_dynamic_op_panel = ttk.Frame(self.top_frame)
+        self.up_dynamic_op_panel.pack(fill="x")
 
         # === Área de gráficas ===
         self.plot_frame = ttk.LabelFrame(self.main_frame, text="Graph")
@@ -110,22 +103,29 @@ class SignalProcessingApp:
 
         self.plotter = Plotter(self.plot_frame)
         self.processed_plot = ProcessedSignalPlot()
-      
-   
+
+    def create_labeled_entry(self, parent, label_text, default_value):
+        ttk.Label(parent, text=label_text).pack(pady=(0, 5))
+
+        entry = ttk.Entry(parent, width=10)
+        entry.insert(0, str(default_value))  # Usamos insert para poner el valor por defecto
+        entry.pack(padx=5, pady=(0, 10))
+
+        return entry
+
     def configure_signal(self, event=None):
         for widget in self.left_dynamic_signal_panel.winfo_children():
             widget.destroy()
 
         signal_type = self.signal_selection.get()
 
-        if signal_type == "Microphone":
-            pass
+        if signal_type == settings.source_select[0]:
+            ttk.Button(self.left_dynamic_signal_panel, text="Record", command=self.record_audio).pack(padx=5, pady=(0, 10))
 
-        elif signal_type == "Audio File":
-            ttk.Button(self.left_dynamic_signal_panel, text="Cargar archivo de audio", command=self.load_audio_file).pack(pady=20)
+        elif signal_type == settings.source_select[1]:
+            ttk.Button(self.left_dynamic_signal_panel, text="Load file", command=self.load_audio).pack(pady=20)
 
-        elif signal_type == "Synthetic":
-            ttk.Label(self.left_dynamic_signal_panel, text="Synthetic: ").pack(pady=(0, 10))
+        elif signal_type == settings.source_select[2]:
             self.signal_synthetic = ttk.Combobox(
                 self.left_dynamic_signal_panel,
                 values=settings.signalSelector,
@@ -134,7 +134,9 @@ class SignalProcessingApp:
             )
             self.signal_synthetic.pack(padx=10, pady=(0, 10))
 
-        elif signal_type == "Board":
+            ttk.Button(self.left_dynamic_signal_panel, text="Generate", command=self.generate_synthetic).pack(padx=5, pady=(0, 10))
+
+        elif signal_type == settings.source_select[3]:
             ttk.Label(self.left_dynamic_signal_panel, text="Puerto serial:").pack()
             ttk.Entry(self.left_dynamic_signal_panel).pack()
             ttk.Label(self.left_dynamic_signal_panel, text="Baudrate:").pack(pady=(10, 0))
@@ -143,39 +145,134 @@ class SignalProcessingApp:
             baud.pack()
             ttk.Button(self.left_dynamic_signal_panel, text="Conectar", command=lambda: print("Conectando...")).pack(pady=10)
 
+    def configure_control(self, event=None):
+        action = self.control_selection.get()
+        actions = {
+            settings.control_select[0]: lambda: audio_utils.play_mono(settings.GRAPH[0],self.y1, self.fs1),
+            settings.control_select[1]: lambda: audio_utils.play_mono(settings.GRAPH[1],self.y2, self.fs2),
+            settings.control_select[2]: lambda: audio_utils.play_stereo(self.y1, self.fs1, self.y2, self.fs2),
+            settings.control_select[3]: self.generate_result,
+        }
+        actions[action]()
+
+    def configure_operations(self, event=None):
+        for widget in self.up_dynamic_op_panel.winfo_children():
+            widget.destroy()
+
+        operation_type = self.operation_selection.get()
+
+        if operation_type == settings.operation_select[0]:
+            self.basic_select = ttk.Combobox(
+                self.up_dynamic_op_panel,
+                values=settings.basic_operation,
+                state="readonly",
+                width=20
+            )
+            self.basic_select.pack(side="left", pady=15, padx=5)
+            self.basic_select.bind("<<ComboboxSelected>>", self.handle_operation)
+            
+        elif operation_type == settings.operation_select[1]:
+            self.preprocessing_select = ttk.Combobox(
+                self.up_dynamic_op_panel,
+                values=settings.preprocessing_operation,
+                state="readonly",
+                width=20
+            )
+            self.preprocessing_select.pack(side="left", pady=15, padx=5)
+
+        elif operation_type == settings.operation_select[2]:
+            pass
+
+        elif operation_type == settings.operation_select[3]:
+            pass
+
+        elif operation_type == settings.operation_select[4]:
+            pass
+
+        elif operation_type == settings.operation_select[5]:
+            pass
+
+        elif operation_type == settings.operation_select[6]:
+            pass
+
+    def record_audio(self):
+        duration = abs(float(self.duration_var.get()))
+        signal = self.signal_selector.get()
+        fs = abs(float(self.fs_var.get()))
+        
+        n, y = audio_utils.record_audio(duration, fs)
+        self.handle_signal_parameters(n, y, fs, signal)
+
+    def load_audio(self):
+        signal = self.signal_selector.get()
+
+        n, y, fs, type= file_manager.load_audio_file()
+
+        if type == settings.audio_types[0]: 
+            self.handle_signal_parameters(n[0], y[0], fs, signal)
+        else:
+            self.handle_signal_parameters(n[0], y[0], fs, settings.GRAPH[0])
+            self.handle_signal_parameters(n[1], y[1], fs, settings.GRAPH[1])
+
     def generate_synthetic(self):
         signal = self.signal_selector.get()
-        amp = self.amp_selector.get()
         synthetic = self.signal_synthetic.get()
-        fa = self.fa_var.get()
-        fs = self.fs_var.get()
-        gain = self.gain_var.get()
-        n0 = self.start_var.get()
-        duration = self.duration_var.get()
-        shift = self.t_shift_var.get()
-        try:
-            self.n, self.y = generation.signal_selector(synthetic, fa, fs, gain, n0, duration, shift)
-            self.y = signal_utils.amplitud_selector(amp, self.y)
-        except:
-            print("Error generating signal")
+        fa = abs(float(self.fa_var.get()))
+        fs = abs(float(self.fs_var.get()))
+        gain = float(self.gain_var.get())
+        n0 = float(self.start_var.get())
+        duration = abs(float(self.duration_var.get()))
+        shift = float(self.t_shift_var.get())
 
-        self.plotter.update_plot(signal, self.n, self.y)
+        try:
+            n, y = generation.signal_selector(synthetic, fa, fs, gain, n0, duration, shift)
+            self.handle_signal_parameters(n, y, fs, signal)
+        except:
+            messagebox.showwarning("Warning", "Select signal first...")
+
+    def handle_operation(self):
+        action = self.basic_select.get()
+        math.basic_operations(action, self.y1, self.fs1, self.y2, self.fs2)
+
+    def handle_filtering(self):
+        pass
+
+    def handle_signal_to_signal(self):
+        pass
+
+    def handle_fourier_t(self):
+        pass
+
+    def handle_cosine_t(self):
+        pass
+
+    def handle_wavelet_t(self):
+        pass
+
+    def handle_none(self):
+        pass
+
+    def handle_signal_parameters(self, n, y, fs, signal_name):
+        amp = self.amp_selector.get()
+
+        if hasattr(self, "preprocessing_select"):
+            action = self.preprocessing_select.get()
+        else:
+            action = settings.preprocessing_operation[3]
+
+        y = signal_utils.amplitud_selector(amp, y)
+        y = math.preprocessing_operations(action, y)
+
+        if signal_name == settings.GRAPH[0]:
+            self.y1, self.n1, self.fs1 = y, n, fs
+        elif signal_name == settings.GRAPH[1]:
+            self.y2, self.n2, self.fs2 = y, n, fs
+
+        self.plotter.update_plot(signal_name, n, y)
 
     def generate_result(self):
         fs = self.fa_var.get()
         self.processed_plot.show(self.root, self.n, self.y, fs)
-
-    def execute_control(self, event=None):
-        action = self.control_selection.get()
-        if action == "Result":
-            self.processed_plot.show(self.root, self.n, self.x)
-            print("Mostrar resultado final")
-        elif action == "Record":
-            print("Grabando...")
-        elif action == "Play":
-            print("Reproduciendo...")
-        elif action == "Save":
-            print("Guardando...") 
 
 if __name__ == "__main__":
     root = tk.Tk()
