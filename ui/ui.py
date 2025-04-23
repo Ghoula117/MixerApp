@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from core.plotter import Plotter, ProcessedSignalPlot
+from core.audio_utils import axis_time
 from core import generation, signal_utils, audio_utils , file_manager, math, settings
 
 class SignalProcessingApp:
@@ -22,7 +23,6 @@ class SignalProcessingApp:
         )
         self.signal_selection.pack(side="left", padx=5)
         self.signal_selection.bind("<<ComboboxSelected>>", self.configure_signal)
-        self.signal_selection.set(settings.source_select[0])
 
         ttk.Label(self.top_frame, text="Control:").pack(side="left", padx=5)
         self.control_selection = ttk.Combobox(
@@ -84,7 +84,15 @@ class SignalProcessingApp:
         self.start_var = self.create_labeled_entry(self.left_fixed_panel, "start:", -4)
         self.duration_var = self.create_labeled_entry(self.left_fixed_panel, "Duration: (s)", 1.5)
         self.t_shift_var = self.create_labeled_entry(self.left_fixed_panel, "Time Shift:", 0)
-        self.sampling_var = self.create_labeled_entry(self.left_fixed_panel, "Sampling:", 0)
+
+        ttk.Label(self.left_fixed_panel, text="Sampling").pack(pady=(0, 5))
+        self.sampling_select = ttk.Combobox(
+            self.left_fixed_panel,
+            values=settings.sampling_method,
+            state="readonly",
+            width=10
+        )
+        self.sampling_select.pack(padx=5, pady=(0, 10))
 
         # Panel dinámico contenedor
         self.left_dynamic_panel = ttk.Frame(self.left_panel_container)
@@ -108,7 +116,7 @@ class SignalProcessingApp:
         ttk.Label(parent, text=label_text).pack(pady=(0, 5))
 
         entry = ttk.Entry(parent, width=10)
-        entry.insert(0, str(default_value))  # Usamos insert para poner el valor por defecto
+        entry.insert(0, str(default_value))
         entry.pack(padx=5, pady=(0, 10))
 
         return entry
@@ -196,25 +204,35 @@ class SignalProcessingApp:
             pass
 
     def record_audio(self):
+        amp = self.amp_selector.get()
+        sampling = self.sampling_select.get()
         duration = abs(float(self.duration_var.get()))
         signal = self.signal_selector.get()
         fs = abs(float(self.fs_var.get()))
+        shift = float(self.t_shift_var.get())
+        n0 = float(self.start_var.get())
         
-        n, y = audio_utils.record_audio(duration, fs)
-        self.handle_signal_parameters(n, y, fs, signal)
+        n, y = audio_utils.record_audio(duration, fs, shift, n0)
+        self.handle_signal_parameters(amp, sampling, n, y, fs, duration, signal)
 
     def load_audio(self):
+        amp = self.amp_selector.get()
+        sampling = self.sampling_select.get()
+        duration = abs(float(self.duration_var.get()))
         signal = self.signal_selector.get()
+        shift = float(self.t_shift_var.get())
+        n0 = float(self.start_var.get())
 
-        n, y, fs, type= file_manager.load_audio_file()
+        n, y, fs, type= file_manager.load_audio_file(duration, shift, n0)
 
         if type == settings.audio_types[0]: 
-            self.handle_signal_parameters(n[0], y[0], fs, signal)
+            self.handle_audio_parameters(amp, sampling, n[0], y[0], fs, duration, signal)
         else:
-            self.handle_signal_parameters(n[0], y[0], fs, settings.GRAPH[0])
-            self.handle_signal_parameters(n[1], y[1], fs, settings.GRAPH[1])
+            self.handle_audio_parameters(amp, sampling, n[0], y[0], fs, duration, settings.GRAPH[0])
+            self.handle_audio_parameters(amp, sampling, n[0], y[0], fs, duration, settings.GRAPH[1])
 
     def generate_synthetic(self):
+        amp = self.amp_selector.get()
         signal = self.signal_selector.get()
         synthetic = self.signal_synthetic.get()
         fa = abs(float(self.fa_var.get()))
@@ -223,14 +241,15 @@ class SignalProcessingApp:
         n0 = float(self.start_var.get())
         duration = abs(float(self.duration_var.get()))
         shift = float(self.t_shift_var.get())
+        sampling = self.sampling_select.get()
 
         try:
             n, y = generation.signal_selector(synthetic, fa, fs, gain, n0, duration, shift)
-            self.handle_signal_parameters(n, y, fs, signal)
+            self.handle_signal_parameters(amp, sampling, n, y, fs, duration, signal)
         except:
             messagebox.showwarning("Warning", "Select signal first...")
 
-    def handle_operation(self):
+    def handle_operation(self, event=None):
         action = self.basic_select.get()
         math.basic_operations(action, self.y1, self.fs1, self.y2, self.fs2)
 
@@ -252,17 +271,37 @@ class SignalProcessingApp:
     def handle_none(self):
         pass
 
-    def handle_signal_parameters(self, n, y, fs, signal_name):
-        amp = self.amp_selector.get()
-
+    def handle_signal_parameters(self, amp, sampling, n, y, fs, n0, signal_name):
         if hasattr(self, "preprocessing_select"):
             action = self.preprocessing_select.get()
         else:
             action = settings.preprocessing_operation[3]
 
+        if sampling not in settings.sampling_method:
+            sampling = settings.sampling_method[2]
+
+        n, y = signal_utils.time_sampling(sampling ,y, n0)
         y = signal_utils.amplitud_selector(amp, y)
         y = math.preprocessing_operations(action, y)
+        if signal_name == settings.GRAPH[0]:
+            self.y1, self.n1, self.fs1 = y, n, fs
+        elif signal_name == settings.GRAPH[1]:
+            self.y2, self.n2, self.fs2 = y, n, fs
 
+        self.plotter.update_plot(signal_name, n, y)
+
+    def handle_audio_parameters(self, amp, sampling, n, y, fs, n0, signal_name):
+        if hasattr(self, "preprocessing_select"):
+            action = self.preprocessing_select.get()
+        else:
+            action = settings.preprocessing_operation[3]
+
+        if sampling not in settings.sampling_method:
+            sampling = settings.sampling_method[2]
+            
+        n, y = signal_utils.time_sampling(sampling ,y, n0)
+        y = signal_utils.amplitud_selector(amp, y)
+        y = math.preprocessing_operations(action, y)
         if signal_name == settings.GRAPH[0]:
             self.y1, self.n1, self.fs1 = y, n, fs
         elif signal_name == settings.GRAPH[1]:

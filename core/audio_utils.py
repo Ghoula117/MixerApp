@@ -6,7 +6,7 @@ from tkinter import simpledialog, messagebox
 from core.signal_utils import resample_and_align
 from core import settings
 
-def record_audio(duration: float, fs: int):
+def record_audio(duration: float, fs: int, shift:int, n0:int):
 
     top = simpledialog.Toplevel()
     top.title("Recording")
@@ -26,9 +26,33 @@ def record_audio(duration: float, fs: int):
 
     top.destroy()
 
-    n = np.arange(len(audio_data)) / fs
+    y = shift_audio(audio_data, shift, fs, n0)
+    n = axis_time(len(y), fs, n0)
 
-    return n, audio_data[:, 0]
+    return n, y
+
+def shift_audio(audio, shift_seconds, fs, n0_seconds):
+    audio = np.squeeze(audio).flatten()
+    n_samples = len(audio)
+    
+    shift_samples = int(shift_seconds * fs)
+    n0_samples = int(n0_seconds * fs)
+
+    y = np.zeros(n_samples)
+
+    insert_start = max(0, shift_samples - n0_samples)
+    insert_end = min(n_samples, insert_start + n_samples)
+
+    audio_start = max(0, n0_samples - shift_samples)
+    audio_end = min(n_samples, audio_start + (insert_end - insert_start))
+
+    if insert_end > insert_start and audio_end > audio_start:
+        y[insert_start:insert_end] = audio[audio_start:audio_end]
+
+    return y
+
+def axis_time(n_samples, fs, n0_seconds):
+    return np.arange(n0_seconds * fs, n0_seconds * fs + n_samples) / fs
 
 def play_mono(signal, y, fs):
     if signal == settings.GRAPH[0]:

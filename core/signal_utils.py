@@ -24,21 +24,64 @@ def amplitud_power(signal: list[float] | np.ndarray)-> np.ndarray:
 def amplitud_none(signal: list[float] | np.ndarray)-> np.ndarray:
     return np.array(signal)
 
-options = {
-    settings.opera_amp[0]: amplitud_scaling,
-    settings.opera_amp[1]: amplitud_log,
-    settings.opera_amp[2]: amplitud_exponential,
-    settings.opera_amp[3]: amplitud_inversion,
-    settings.opera_amp[4]: amplitud_power,
-    settings.opera_amp[5]: amplitud_none
-}
+def amplitud_selector(name: str, signal: list[float] | np.ndarray)-> np.ndarray:
+    options = {
+        settings.opera_amp[0]: amplitud_scaling,
+        settings.opera_amp[1]: amplitud_log,
+        settings.opera_amp[2]: amplitud_exponential,
+        settings.opera_amp[3]: amplitud_inversion,
+        settings.opera_amp[4]: amplitud_power,
+        settings.opera_amp[5]: amplitud_none
+    }
+
+    y = options[name](signal)
+    y = verification(y)
+    return y
+
+def downsampling(signal: list[float] | np.ndarray, n0:int):
+    k = abs(simpledialog.askinteger("Downsampling for integer k", "Value:",minvalue = 0, initialvalue=2))
+    y = signal[::k]
+    n = np.arange(n0, n0 + len(y))
+    return n, y
+
+def upsampling(signal: list[float] | np.ndarray, n0:int):
+    k = simpledialog.askinteger("Upsampling for integer k", "Value:",minvalue = 1 , initialvalue=3)
+    y = np.zeros(len(signal) * k - (k-1))
+    n = np.arange(n0, n0 + len(y))
+
+    y[::k] = signal
+    for i in range(0, len(y)):
+        if i % k != 0 and i:
+            idx_prev = i // k
+            idx_next = idx_prev + 1
+            
+            if idx_next >= len(signal):
+                idx_next = idx_prev
+            
+            alpha = (i % k) / k
+            y[i] = signal[idx_prev] * (1 - alpha) + signal[idx_next] * alpha
+            
+    return n, y
+
+def sampling_none(signal: list[float] | np.ndarray, *args):
+    return np.arange(len(signal)), np.asarray(signal)
+
+def time_sampling(name: str, signal: list[float] | np.ndarray, n0:int) -> np.ndarray:
+    options = {
+        settings.sampling_method[0]: downsampling,
+        settings.sampling_method[1]: upsampling,
+        settings.sampling_method[2]: sampling_none
+    }
+    n, y = options[name](signal, n0)
+
+    return n, y
 
 def resample_and_align(y1, fs1, y2, fs2):
     if fs1 >= fs2:
         fs_target = fs1
     else:
         fs_target = fs2
-    fs_target = abs(simpledialog.askinteger("Warning", "Frequency value:", initialvalue=fs_target))
+    fs_target = abs(simpledialog.askinteger("Warning", "Frequency value:", initialvalue=int(fs_target)))
     dur1 = len(y1) / fs1
     dur2 = len(y2) / fs2
 
@@ -68,10 +111,4 @@ def verification(y: list[float] | np.ndarray)-> np.ndarray:
     if not np.all(mask):
         messagebox.showwarning("Warning", "Value nan or inf deleted...")
         y = y[mask]
-    return y
-    
-
-def amplitud_selector(name: str, signal: list[float] | np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    y = options[name](signal)
-    y = verification(y)
     return y

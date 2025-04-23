@@ -22,3 +22,5 @@ audio_types = ["Mono", "Stereo"]
 preprocessing_operation = ["Normalization 0 & 1", "Normalization -1 & 1", "Standard normalization", "None"]
 
 basic_operation = ["y1 + y2", "y1 - y2", " y1 * y2", "y1 / y2", "y1 ** y2", ]
+
+sampling_method = ["Downsampling", "Upsampling", "None"]
