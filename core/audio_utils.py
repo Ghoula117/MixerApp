@@ -3,7 +3,7 @@ import sounddevice as sd
 import time
 from time import sleep
 from tkinter import simpledialog, messagebox
-from core.signal_utils import resample_and_align
+from core.signal_utils import resample_and_align, axis_time
 from core import settings
 
 def record_audio(duration: float, fs: int, shift:int, n0:int):
@@ -26,43 +26,56 @@ def record_audio(duration: float, fs: int, shift:int, n0:int):
 
     top.destroy()
 
-    y = shift_audio(audio_data, shift, fs, n0)
+    y = shift_audio(audio_data, shift, fs, n0, duration)
     n = axis_time(len(y), fs, n0)
 
     return n, y
 
-def shift_audio(audio, shift_seconds, fs, n0_seconds):
+def shift_audio(audio, shift_seconds, fs, n0_seconds, total_duration_seconds):
     audio = np.squeeze(audio).flatten()
-    n_samples = len(audio)
+    audio_length = len(audio)
     
+    # Total samples in the output buffer
+    n_total_samples = int(total_duration_seconds * fs)
+    y = np.zeros(n_total_samples)
+
+    # Calcula el desplazamiento en muestras
     shift_samples = int(shift_seconds * fs)
     n0_samples = int(n0_seconds * fs)
 
-    y = np.zeros(n_samples)
+    # Índice donde comienza el audio en el vector de salida
+    insert_start = shift_samples - n0_samples
+    insert_end = insert_start + audio_length
 
-    insert_start = max(0, shift_samples - n0_samples)
-    insert_end = min(n_samples, insert_start + n_samples)
+    # Rango válido de inserción (clipping para evitar errores)
+    clip_start = max(insert_start, 0)
+    clip_end = min(insert_end, n_total_samples)
 
-    audio_start = max(0, n0_samples - shift_samples)
-    audio_end = min(n_samples, audio_start + (insert_end - insert_start))
+    # Ajuste en el índice de entrada del audio si insert_start < 0
+    audio_clip_start = max(0, -insert_start)
+    audio_clip_end = audio_clip_start + (clip_end - clip_start)
 
-    if insert_end > insert_start and audio_end > audio_start:
-        y[insert_start:insert_end] = audio[audio_start:audio_end]
+    # Inserta solo la parte válida del audio
+    if clip_end > clip_start:
+        y[clip_start:clip_end] = audio[audio_clip_start:audio_clip_end]
 
     return y
-
-def axis_time(n_samples, fs, n0_seconds):
-    return np.arange(n0_seconds * fs, n0_seconds * fs + n_samples) / fs
 
 def play_mono(signal, y, fs):
     if signal == settings.GRAPH[0]:
         mono = np.column_stack((y, np.zeros_like(y)))
     elif signal == settings.GRAPH[1]:
         mono = np.column_stack((np.zeros_like(y), y))
+    indx = simpledialog.askinteger("Playback method", "\n1 Direct audio\n2. Invert audio", minvalue=1, maxvalue=2, initialvalue=1)
+    if indx==2:
+        mono = np.flip(mono)
     sd.play(mono, fs)
     sd.wait()
 
 def play_stereo(y1, fs1, y2, fs2):
     y1_aligned, y2_aligned, fs_common = resample_and_align(y1, fs1, y2, fs2)
     stereo = np.stack([y1_aligned, y2_aligned], axis=1)
+    indx = simpledialog.askinteger("Playback method", "\n1 Direct audio\n2. Invert audio", minvalue=1, maxvalue=2, initialvalue=1)
+    if indx==2:
+        stereo = np.flip(stereo)
     sd.play(stereo, fs_common)

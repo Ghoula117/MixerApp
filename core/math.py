@@ -15,37 +15,44 @@ def basic_operations(action: str, y1: list[float] | np.ndarray, fs1:int, y2: lis
         settings.basic_operation[3]: division,
         settings.basic_operation[4]: power
     }
-    actions[action](y1, fs1, y2, fs2)
+    result, freq = actions[action](y1, fs1, y2, fs2)
+
+    return result, freq
 
 def addition(y1: list[float] | np.ndarray, fs1:int, y2: list[float] | np.ndarray, fs2:int)-> np.ndarray: 
     y1_align, y2_align, freq = resample_and_align(y1, fs1, y2, fs2)
     result = y1_align + y2_align
     n = np.arange(len(result)) / freq
     generate_result(n, result, freq)
+    return result, freq
 
 def subtraction(y1: list[float] | np.ndarray, fs1:int, y2: list[float] | np.ndarray, fs2:int)-> np.ndarray: 
     y1_align, y2_align, freq =resample_and_align(y1, fs1, y2, fs2)
     result = y1_align - y2_align
     n = np.arange(len(result)) / freq
     generate_result(n, result, freq)
+    return result, freq
 
 def multiply(y1: list[float] | np.ndarray, fs1:int, y2: list[float] | np.ndarray, fs2:int)-> np.ndarray: 
     y1_align, y2_align, freq =resample_and_align(y1, fs1, y2, fs2)
     result = y1_align * y2_align
     n = np.arange(len(result)) / freq
     generate_result(n, result, freq)
+    return result, freq
 
 def division(y1: list[float] | np.ndarray, fs1:int, y2: list[float] | np.ndarray, fs2:int)-> np.ndarray: 
     y1_align, y2_align, freq =resample_and_align(y1, fs1, y2, fs2)
     result = y1_align / y2_align
     n = np.arange(len(result)) / freq
     generate_result(n, result, freq)
+    return result, freq
 
 def power(y1: list[float] | np.ndarray, fs1:int, y2: list[float] | np.ndarray, fs2:int)-> np.ndarray: 
     y1_align, y2_align, freq =resample_and_align(y1, fs1, y2, fs2)
     result = y1_align ** y2_align
     n = np.arange(len(result)) / freq
     generate_result(n, result, freq)
+    return result, freq
 
 def preprocessing_operations(action: str, y: list[float] | np.ndarray):
     actions = {
@@ -86,6 +93,7 @@ def wavelet_t():
 
 def generate_result(n, y, fs):
     root = tk.Tk()
+    root.withdraw()
     try:
         processed_plot.show(root, n, y, fs)
     except:
