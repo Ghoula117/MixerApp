@@ -32,7 +32,7 @@ class ProcessedSignalPlot:
         self.fig, self.ax = plt.subplots(figsize=(6, 2))
         self.ax.set_title("Processed Signal")
 
-    def show(self, root, x_data, y_data, fs=None):
+    def show(self, root, x_data, y_data):
         from tkinter import Toplevel
         from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
@@ -42,11 +42,6 @@ class ProcessedSignalPlot:
 
         self.ax.clear()
 
-        if fs:
-            x_data = x_data / fs
-            self.ax.set_xlabel("Tiempo [s]")
-        else:
-            self.ax.set_xlabel("Muestras")
 
         self.ax.stem(x_data, y_data)
         self.ax.set_title("Processed Signal")

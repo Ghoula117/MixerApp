@@ -1,13 +1,48 @@
 import numpy as np
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 from core import settings
-from core.plotter import Plotter, ProcessedSignalPlot
+from core.plotter import ProcessedSignalPlot
 from core.signal_utils import resample_and_align
 
 processed_plot = ProcessedSignalPlot()
 
-def basic_operations(action: str, y1: list[float] | np.ndarray, fs1:int, y2: list[float] | np.ndarray, fs2:int):
+def addition(y1, fs1, y2, fs2): 
+    #y1_align, y2_align, freq = resample_and_align(y1, fs1, y2, fs2)
+    result = y1 + y2
+    n = np.arange(len(result))
+    generate_result(n, result)
+    return result
+
+def subtraction(y1, fs1, y2, fs2): 
+    y1_align, y2_align, freq =resample_and_align(y1, fs1, y2, fs2)
+    result = y1- y2
+    n = np.arange(len(result)) / freq
+    generate_result(n, result)
+    return result
+
+def multiply(y1, fs1, y2, fs2): 
+    y1_align, y2_align, freq =resample_and_align(y1, fs1, y2, fs2)
+    result = y1* y2
+    n = np.arange(len(result))
+    generate_result(n, result)
+    return result
+
+def division(y1, fs1, y2, fs2): 
+    y1_align, y2_align, freq =resample_and_align(y1, fs1, y2, fs2)
+    result = y1_align / y2_align
+    n = np.arange(len(result)) / freq
+    generate_result(n, result)
+    return result
+
+def power(y1, fs1, y2, fs2): 
+    y1_align, y2_align, freq =resample_and_align(y1, fs1, y2, fs2)
+    result = y1_align ** y2_align
+    n = np.arange(len(result)) / freq
+    generate_result(n, result)
+    return result
+
+def basic_operations(action: str, y1: list[float] | np.ndarray, fs1:int, y2: list[float] | np.ndarray, fs2:int)-> np.ndarray: 
     actions = {
         settings.basic_operation[0]: addition,
         settings.basic_operation[1]: subtraction,
@@ -15,44 +50,9 @@ def basic_operations(action: str, y1: list[float] | np.ndarray, fs1:int, y2: lis
         settings.basic_operation[3]: division,
         settings.basic_operation[4]: power
     }
-    result, freq = actions[action](y1, fs1, y2, fs2)
+    result = actions[action](y1, fs1, y2, fs2)
 
-    return result, freq
-
-def addition(y1: list[float] | np.ndarray, fs1:int, y2: list[float] | np.ndarray, fs2:int)-> np.ndarray: 
-    y1_align, y2_align, freq = resample_and_align(y1, fs1, y2, fs2)
-    result = y1_align + y2_align
-    n = np.arange(len(result)) / freq
-    generate_result(n, result, freq)
-    return result, freq
-
-def subtraction(y1: list[float] | np.ndarray, fs1:int, y2: list[float] | np.ndarray, fs2:int)-> np.ndarray: 
-    y1_align, y2_align, freq =resample_and_align(y1, fs1, y2, fs2)
-    result = y1_align - y2_align
-    n = np.arange(len(result)) / freq
-    generate_result(n, result, freq)
-    return result, freq
-
-def multiply(y1: list[float] | np.ndarray, fs1:int, y2: list[float] | np.ndarray, fs2:int)-> np.ndarray: 
-    y1_align, y2_align, freq =resample_and_align(y1, fs1, y2, fs2)
-    result = y1_align * y2_align
-    n = np.arange(len(result)) / freq
-    generate_result(n, result, freq)
-    return result, freq
-
-def division(y1: list[float] | np.ndarray, fs1:int, y2: list[float] | np.ndarray, fs2:int)-> np.ndarray: 
-    y1_align, y2_align, freq =resample_and_align(y1, fs1, y2, fs2)
-    result = y1_align / y2_align
-    n = np.arange(len(result)) / freq
-    generate_result(n, result, freq)
-    return result, freq
-
-def power(y1: list[float] | np.ndarray, fs1:int, y2: list[float] | np.ndarray, fs2:int)-> np.ndarray: 
-    y1_align, y2_align, freq =resample_and_align(y1, fs1, y2, fs2)
-    result = y1_align ** y2_align
-    n = np.arange(len(result)) / freq
-    generate_result(n, result, freq)
-    return result, freq
+    return result
 
 def preprocessing_operations(action: str, y: list[float] | np.ndarray):
     actions = {
@@ -76,7 +76,40 @@ def standard_normalization(y: list[float] | np.ndarray)-> np.ndarray:
 def operation_none(y: list[float] | np.ndarray)-> np.ndarray:
     return np.array(y)
 
-def processing_filtering():
+def processing_filtering(action:str, x:list[float] | np.ndarray, h: list[float] | np.ndarray, ax, bx):
+    actions = {
+        settings.filter_type[0]: FIR_FILTER,
+        settings.filter_type[1]: IIR_FILTER
+    }
+    y = actions[action](x, h, ax, bx)
+    return y
+
+def FIR_FILTER(x, h)-> np.ndarray:
+    Lx = len(x)
+    Lh = len(h)
+
+    xi = simpledialog.askinteger("Initial value of x", "value:", initialvalue=0)
+    xf = simpledialog.askinteger("Final value of x", "value:",   initialvalue=0)
+    hi = simpledialog.askinteger("Initial value of h", "value:", initialvalue=0)
+    hf = simpledialog.askinteger("Final value of h", "value:",   initialvalue=0)
+
+    Ly = Lx + Lh - 1
+    yi = xi + hi
+    yf = xf + hf
+
+    y = np.zeros(Ly)
+
+    for n in range(Ly): 
+        for k in range(Lh): 
+            if 0 <= n - k < Lx:
+                y[n] += x[k] * h[n - k]
+
+    n = np.linspace(yi, yf, Ly)
+    generate_result(n, y)
+
+    return y
+
+def IIR_FILTER():
     pass
 
 def signal_to_signal_processing():
@@ -91,10 +124,10 @@ def cosine_t():
 def wavelet_t():
     pass
 
-def generate_result(n, y, fs):
+def generate_result(n, y):
     root = tk.Tk()
     root.withdraw()
     try:
-        processed_plot.show(root, n, y, fs)
+        processed_plot.show(root, n, y)
     except:
         messagebox.showwarning("Warning", "Signal first...")

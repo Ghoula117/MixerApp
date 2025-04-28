@@ -27,7 +27,7 @@ def record_audio(duration: float, fs: int, shift:int, n0:int):
     top.destroy()
 
     y = shift_audio(audio_data, shift, fs, n0, duration)
-    n = axis_time(len(y), fs, n0)
+    n = axis_time(len(y), fs, n0, 'audio', duration)
 
     return n, y
 
@@ -74,7 +74,7 @@ def play_mono(signal, y, fs):
 
 def play_stereo(y1, fs1, y2, fs2):
     y1_aligned, y2_aligned, fs_common = resample_and_align(y1, fs1, y2, fs2)
-    stereo = np.stack([y1_aligned, y2_aligned], axis=1)
+    stereo = np.stack([y1, y2], axis=1)
     indx = simpledialog.askinteger("Playback method", "\n1 Direct audio\n2. Invert audio", minvalue=1, maxvalue=2, initialvalue=1)
     if indx==2:
         stereo = np.flip(stereo)

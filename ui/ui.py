@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from core.plotter import Plotter, ProcessedSignalPlot
 from core import generation, signal_utils, audio_utils , file_manager, math, settings
+from core.math import generate_result
 
 class SignalProcessingApp:
     def __init__(self, root):
@@ -77,7 +78,7 @@ class SignalProcessingApp:
         self.amp_selector.pack(padx=5, pady=(0, 10))
         self.amp_selector.set(settings.opera_amp[5])
 
-        self.fa_var = self.create_labeled_entry(self.left_fixed_panel, "Analog Freq (Hz):", 60.0)
+        self.fa_var = self.create_labeled_entry(self.left_fixed_panel, "Analog Freq (Hz):", 5.0)
         self.fs_var = self.create_labeled_entry(self.left_fixed_panel, "Sampling Freq (Hz):", 180.0)
         self.gain_var = self.create_labeled_entry(self.left_fixed_panel, "Gain:", 1.0)
         self.start_var = self.create_labeled_entry(self.left_fixed_panel, "start: (s)", -4)
@@ -157,7 +158,7 @@ class SignalProcessingApp:
         actions = {
             settings.control_select[0]: lambda: audio_utils.play_mono(settings.GRAPH[0], self.y1, self.fs1),
             settings.control_select[1]: lambda: audio_utils.play_mono(settings.GRAPH[1], self.y2, self.fs2),
-            settings.control_select[2]: lambda: audio_utils.play_stereo(self.y3, self.fs3, self.y3, self.fs3),
+            settings.control_select[2]: lambda: audio_utils.play_stereo(self.y3, self.fs1, self.y3, self.fs2),
             settings.control_select[3]: lambda: file_manager.save_signal(self.fs1, self.y1, self.y2, self.y3)
         }
         actions[action]()
@@ -176,7 +177,6 @@ class SignalProcessingApp:
                 width=20
             )
             self.basic_select.pack(side="left", pady=15, padx=5)
-            self.basic_select.bind("<<ComboboxSelected>>", self.handle_operation)
             
         elif operation_type == settings.operation_select[1]:
             self.preprocessing_select = ttk.Combobox(
@@ -212,7 +212,7 @@ class SignalProcessingApp:
         n0 = float(self.start_var.get())
         
         n, y = audio_utils.record_audio(duration, fs, shift, n0)
-        self.handle_audio_parameters(amp, sampling, n, y, fs, n0, signal)
+        self.handle_audio_parameters(amp, sampling, n, y, fs, n0, signal, duration)
 
     def load_audio(self):
         amp = self.amp_selector.get()
@@ -241,16 +241,23 @@ class SignalProcessingApp:
         duration = abs(float(self.duration_var.get()))
         shift = float(self.t_shift_var.get())
         sampling = self.sampling_select.get()
+        n, y = generation.signal_selector(synthetic, fa, fs, gain, n0, duration, shift)
+        self.handle_signal_parameters(amp, sampling, n, y, fs, n0, signal, duration)
 
-        try:
+        """try:
             n, y = generation.signal_selector(synthetic, fa, fs, gain, n0, duration, shift)
-            self.handle_signal_parameters(amp, sampling, n, y, fs, duration, signal)
+            self.handle_signal_parameters(amp, sampling, n, y, fs, n0, signal, duration)
         except:
-            messagebox.showwarning("Warning", "Select signal first...")
+            messagebox.showwarning("Warning", "Select signal first...")"""
 
     def handle_operation(self, event=None):
         action = self.basic_select.get()
-        self.y3, self.fs3 = math.basic_operations(action, self.y1, self.fs1, self.y2, self.fs2)
+        self.y3 = math.basic_operations(action, self.y1, self.fs1, self.y2, self.fs2)
+        """try:
+            self.y3, self.fs3 = math.basic_operations(action, self.y1, self.fs1, self.y2, self.fs2)
+        except:
+            messagebox.showwarning("Warning", "Select at least two functions")"""
+
 
     def handle_filtering(self):
         pass
@@ -270,7 +277,7 @@ class SignalProcessingApp:
     def handle_none(self):
         pass
 
-    def handle_signal_parameters(self, amp, sampling, n, y, fs, n0, signal_name):
+    def handle_signal_parameters(self, amp, sampling, n, y, fs, n0, signal_name, duration):
         if hasattr(self, "preprocessing_select"):
             action = self.preprocessing_select.get()
         else:
@@ -279,7 +286,7 @@ class SignalProcessingApp:
         if sampling not in settings.sampling_method:
             sampling = settings.sampling_method[2]
 
-        n, y = signal_utils.time_sampling(sampling ,y, n0)
+        n , y = signal_utils.time_sampling(sampling ,y, n0, fs, 'synthetic', duration)
         y = signal_utils.amplitud_selector(amp, y)
         y = math.preprocessing_operations(action, y)
         if signal_name == settings.GRAPH[0]:
@@ -289,7 +296,7 @@ class SignalProcessingApp:
 
         self.plotter.update_plot(signal_name, n, y)
 
-    def handle_audio_parameters(self, amp, sampling, n, y, fs, n0, signal_name):
+    def handle_audio_parameters(self, amp, sampling, n, y, fs, n0, signal_name, duration):
         if hasattr(self, "preprocessing_select"):
             action = self.preprocessing_select.get()
         else:
@@ -298,7 +305,7 @@ class SignalProcessingApp:
         if sampling not in settings.sampling_method:
             sampling = settings.sampling_method[2]
             
-        n, y = signal_utils.time_sampling(sampling ,y, n0, fs)
+        n, y = signal_utils.time_sampling(sampling ,y, n0, fs, 'audio', duration)
         y = signal_utils.amplitud_selector(amp, y)
         y = math.preprocessing_operations(action, y)
         if signal_name == settings.GRAPH[0]:
