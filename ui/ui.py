@@ -45,6 +45,7 @@ class SignalProcessingApp:
         self.operation_selection.bind("<<ComboboxSelected>>", self.configure_operations)
 
         ttk.Button(self.top_frame, text="Show Result", command=self.handle_operation).pack(side="right", pady=10)
+        ttk.Button(self.top_frame, text="Show features", command=self.handle_features).pack(side="right", pady=10)
 
         # === Frame principal ===
         self.main_frame = ttk.Frame(root)
@@ -159,7 +160,7 @@ class SignalProcessingApp:
             settings.control_select[0]: lambda: audio_utils.play_mono(settings.GRAPH[0], self.y1, self.fs1),
             settings.control_select[1]: lambda: audio_utils.play_mono(settings.GRAPH[1], self.y2, self.fs2),
             settings.control_select[2]: lambda: audio_utils.play_stereo(self.y3, self.fs1, self.y3, self.fs2),
-            settings.control_select[3]: lambda: file_manager.save_signal(self.fs1, self.y1, self.y2, self.y3)
+            settings.control_select[3]: lambda: file_manager.save_signal(self.fs1, self.y1, self.n1, self.y2, self.n2, self.y3, self.n3)
         }
         actions[action]()
 
@@ -188,7 +189,13 @@ class SignalProcessingApp:
             self.preprocessing_select.pack(side="left", pady=15, padx=5)
 
         elif operation_type == settings.operation_select[2]:
-            pass
+            self.filtering_select = ttk.Combobox(
+                self.up_dynamic_op_panel,
+                values=settings.filter_type,
+                state="readonly",
+                width=20
+            )
+            self.filtering_select.pack(side="left", pady=15, padx=5)
 
         elif operation_type == settings.operation_select[3]:
             pass
@@ -241,27 +248,30 @@ class SignalProcessingApp:
         duration = abs(float(self.duration_var.get()))
         shift = float(self.t_shift_var.get())
         sampling = self.sampling_select.get()
-        n, y = generation.signal_selector(synthetic, fa, fs, gain, n0, duration, shift)
-        self.handle_signal_parameters(amp, sampling, n, y, fs, n0, signal, duration)
 
-        """try:
+        try:
             n, y = generation.signal_selector(synthetic, fa, fs, gain, n0, duration, shift)
             self.handle_signal_parameters(amp, sampling, n, y, fs, n0, signal, duration)
         except:
-            messagebox.showwarning("Warning", "Select signal first...")"""
+            messagebox.showwarning("Warning", "Select signal first.")
 
     def handle_operation(self, event=None):
-        action = self.basic_select.get()
-        self.y3 = math.basic_operations(action, self.y1, self.fs1, self.y2, self.fs2)
-        """try:
-            self.y3, self.fs3 = math.basic_operations(action, self.y1, self.fs1, self.y2, self.fs2)
+        try:
+            if hasattr(self, "basic_select"):
+                basic_action = self.basic_select.get()
+                self.n3, self.y3, self.fs3 = math.basic_operations(basic_action, self.y1, self.fs1, self.n01, self.y2, self.fs2, self.n02)
+            elif hasattr(self, "filtering_select"):
+                filtering_action = self.filtering_select.get()
+                self.n3, self.y3 = math.filtering_operation(filtering_action, self.y1, self.y2, 0, 0)
         except:
-            messagebox.showwarning("Warning", "Select at least two functions")"""
+            messagebox.showwarning("Warning", "Select at least two functions")
 
-
-    def handle_filtering(self):
-        pass
-
+    def handle_features(self):
+        try:
+            signal_utils.stadistics(self.y1, self.fs1, self.y2, self.fs2, self.y3, self.fs3)
+        except:
+            messagebox.showwarning("Warning", "Select at least two functions")
+        
     def handle_signal_to_signal(self):
         pass
 
@@ -290,9 +300,9 @@ class SignalProcessingApp:
         y = signal_utils.amplitud_selector(amp, y)
         y = math.preprocessing_operations(action, y)
         if signal_name == settings.GRAPH[0]:
-            self.y1, self.n1, self.fs1 = y, n, fs
+            self.y1, self.n1, self.fs1, self.n01 = y, n, fs, n0
         elif signal_name == settings.GRAPH[1]:
-            self.y2, self.n2, self.fs2 = y, n, fs
+            self.y2, self.n2, self.fs2, self.n02 = y, n, fs, n0
 
         self.plotter.update_plot(signal_name, n, y)
 

@@ -1,3 +1,4 @@
+import json
 import numpy as np
 from tkinter import filedialog, messagebox
 import soundfile as sf
@@ -31,8 +32,25 @@ def load_audio_file(duration:float, shift:int, n0:int):
     
     return time_axes, shifted_channels, fs, file
 
+def load_signal(): 
+    file_path = filedialog.askopenfilename(filetypes=settings.file_in_types)
+    if not file_path:
+        messagebox.showwarning("Warning", "No file selected")
+        return None
+
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+
+    y1 = np.array(data["y1"])
+    y2 = np.array(data["y2"])
+    y3 = np.array(data["y3"])
+
+    fs = data["fs"]
+    
+    return fs, y1, y2, y3
+
 def save_signal(fs, y1, y2, y3):
-    file_path = filedialog.askopenfilename(filetypes=settings.file_types)
+    file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=settings.file_in_types)
     if not file_path:
         messagebox.showwarning("Warning", "No file selected")
         return
@@ -42,8 +60,13 @@ def save_signal(fs, y1, y2, y3):
         "duration_y1_seg": len(y1) / fs,
         "duration_y2_seg": len(y2) / fs,
         "duration_y3_seg": len(y3) / fs,
-        "descripcion": "Señales procesadas y almacenadas"
+        "y1": y1.tolist(), 
+        "y2": y2.tolist(),
+        "y3": y3.tolist(),
+        "Created by": "Alejandro M.",
     }
 
-    np.savez(file_path, y1=y1, y2=y2, y3=y3, metadata=metadata)
-    messagebox.showwarning("Done", "File succesfuly save somewhere")
+    with open(file_path, "w") as f:
+        json.dump(metadata, f, indent=4)
+
+    messagebox.showinfo("Done", "File successfully saved")

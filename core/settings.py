@@ -17,18 +17,16 @@ sampling_method = ["Downsampling", "Upsampling", "None"]
 #Combobox Option
 signalSelector = ["Impulse", "Step", "Ramp", "Triangular", "Sawtooth", "Sine", "Cosine", "SinC", "Chirp"]
 
-basic_operation = ["y1 + y2", "y1 - y2", " y1 * y2", "y1 / y2", "y1 ** y2"]
+basic_operation = ["y1 + y2", "y1 - y2", " y1 * y2", "y1 / y2", "y1 ** y2",  "Stadistics"]
 
 preprocessing_operation = ["Normalization 0 & 1", "Normalization -1 & 1", "Standard normalization", "None"]
 
 filter_type = ["FIR_FILTER", "IIR_FILTER"]
 
 #File data
-INPUT_FOLDER = "data/input/"
-
-OUTPUT_FOLDER = "data/output/"
-
 file_types = [("WAV Files", "*.wav"), ("All Files", "*.*")]
+
+file_in_types = [("JSON files", "*.json"), ("All Files", "*.*")]
 
 audio_types = ["Mono", "Stereo"]
 

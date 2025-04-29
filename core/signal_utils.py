@@ -1,5 +1,9 @@
 import numpy as np
+import tkinter as tk
+from tkinter import ttk
+import pandas as pd
 from scipy.signal import resample
+from scipy.stats import skew, kurtosis, mode, entropy
 from tkinter import simpledialog, messagebox
 from core import settings
 
@@ -115,6 +119,84 @@ def resample_and_align(y1, fs1, y2, fs2):
 
     return y1_resampled, y2_resampled, fs_target
 
+def resample_signal(y1, fs1, y2, fs2):
+    if fs1 >= fs2:
+        fs_target = fs2
+    else:
+        fs_target = fs1
+    fs_target = abs(simpledialog.askinteger("Warning", "Frequency value:", initialvalue=int(fs_target)))
+    dur1 = len(y1) / fs1
+    dur2 = len(y2) / fs2
+
+    n1_target = int(fs_target * dur1)
+    n2_target = int(fs_target * dur2)
+
+    y1_resampled = resample(y1, n1_target)
+    y2_resampled = resample(y2, n2_target)
+
+    return y1_resampled, y2_resampled, fs_target
+
+def signals_padding(y1:list[float] | np.ndarray, n0_1:float, y2:list[float] | np.ndarray, n0_2:float, fs:int):
+    start = min(n0_1, n0_2)
+    end = max(n0_1 + len(y1) / fs, n0_2 + len(y2) / fs)
+    total_length = int((end - start) * fs)
+
+    y1_extended = np.zeros(total_length)
+    y2_extended = np.zeros(total_length)
+
+    y1_start_index = int((n0_1 - start) * fs)
+    y2_start_index = int((n0_2 - start) * fs)
+
+    y1_extended[y1_start_index:y1_start_index + len(y1)] = y1
+    y2_extended[y2_start_index:y2_start_index + len(y2)] = y2
+
+    n = np.linspace(start, end, total_length, endpoint=False)
+
+    return n, y1_extended, y2_extended
+
+def stadistics(y1, fs1, y2, fs2, y3, fs3):
+    # 1. Calcular las características
+    signals = [y1, y2, y3]
+    signal_names = ["Y1", "Y2", "Y3"]
+
+    all_features = []
+
+    for y in signals:
+        features = {
+            'Energy': np.sum(np.abs(y) ** 2),
+            'Power': np.mean(np.abs(y) ** 2),
+            'Mean': np.mean(y),
+            'Variance': np.var(y),
+            'Standard Deviation': np.std(y),
+            'Minimum': np.min(y),
+            'Maximum': np.max(y),
+            'Mode': mode(y, keepdims=False).mode,
+            'Median': np.median(y),
+            'Skewness': skew(y),
+            'Kurtosis': kurtosis(y),
+            'Entropy': entropy(np.abs(y)),
+            'Dominant Frequency': np.argmax(np.abs(np.fft.fft(y)))
+        }
+        all_features.append(features)
+
+    window = tk.Toplevel()
+    window.title("Signals Statistics")
+    window.geometry("1000x400")
+
+    columns = ["Feature"] + signal_names
+    tree = ttk.Treeview(window, columns=columns, show="headings")
+    
+    for col in columns:
+        tree.heading(col, text=col)
+        tree.column(col, width=200, anchor="center")
+
+    feature_keys = list(all_features[0].keys())
+    for key in feature_keys:
+        row = [key] + [f"{features[key]:.4f}" for features in all_features]
+        tree.insert('', 'end', values=row)
+
+    tree.pack(fill="both", expand=True)
+
 def verification(y: list[float] | np.ndarray)-> np.ndarray:
     y = np.asarray(y, dtype=np.float32)
     mask = np.isfinite(y)
@@ -122,3 +204,15 @@ def verification(y: list[float] | np.ndarray)-> np.ndarray:
         messagebox.showwarning("Warning", "Value nan or inf deleted...")
         y = y[mask]
     return y
+
+def show_features(features, title):
+    root = tk.Toplevel()
+    root.title(title)
+
+    text = tk.Text(root, width=80, height=20)
+    text.pack(padx=10, pady=10)
+
+    for key, value in features.items():
+        text.insert(tk.END, f"{key}: {value}\n")
+
+    root.mainloop()
