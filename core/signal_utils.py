@@ -81,10 +81,10 @@ def time_sampling(name: str, signal: list[float] | np.ndarray, n0:int, fs:int, t
 
     return n, y
 
-def axis_time(n_samples: int, fs: int, n0: float, type: str, duration: float) -> np.ndarray:
-    if type == 'synthetic':
-        n = np.arange(n0, n0 + duration, 1/fs)
-    elif type == 'audio':
+def axis_time(n_samples: int, fs: int, n0: float, type: str, duration: float) -> np.ndarray:   
+    if type == settings.signal_types[1]: #signal
+        n = n0 + np.arange(n_samples) / fs
+    elif type == settings.signal_types[0]: #audio
         n0_samples = int(n0 * fs)
         n = np.arange(n0_samples, n0_samples + n_samples)
         n = n / fs 
@@ -120,10 +120,7 @@ def resample_and_align(y1, fs1, y2, fs2):
     return y1_resampled, y2_resampled, fs_target
 
 def resample_signal(y1, fs1, y2, fs2):
-    if fs1 >= fs2:
-        fs_target = fs2
-    else:
-        fs_target = fs1
+    fs_target = max(fs1, fs2)
     fs_target = abs(simpledialog.askinteger("Warning", "Frequency value:", initialvalue=int(fs_target)))
     dur1 = len(y1) / fs1
     dur2 = len(y2) / fs2
@@ -155,28 +152,31 @@ def signals_padding(y1:list[float] | np.ndarray, n0_1:float, y2:list[float] | np
     return n, y1_extended, y2_extended
 
 def stadistics(y1, fs1, y2, fs2, y3, fs3):
-    # 1. Calcular las características
     signals = [y1, y2, y3]
+    sampling_freqs = [fs1, fs2, fs3]
     signal_names = ["Y1", "Y2", "Y3"]
-
     all_features = []
 
-    for y in signals:
-        features = {
-            'Energy': np.sum(np.abs(y) ** 2),
-            'Power': np.mean(np.abs(y) ** 2),
-            'Mean': np.mean(y),
-            'Variance': np.var(y),
-            'Standard Deviation': np.std(y),
-            'Minimum': np.min(y),
-            'Maximum': np.max(y),
-            'Mode': mode(y, keepdims=False).mode,
-            'Median': np.median(y),
-            'Skewness': skew(y),
-            'Kurtosis': kurtosis(y),
-            'Entropy': entropy(np.abs(y)),
-            'Dominant Frequency': np.argmax(np.abs(np.fft.fft(y)))
-        }
+    for y, fs in zip(signals, sampling_freqs):
+        if y is None or len(y) == 0:
+            features = {key: None for key in settings.feature_keys}
+        else:
+            features = {
+                'Energy': np.sum(np.abs(y) ** 2),
+                'Power': np.mean(np.abs(y) ** 2),
+                'Mean': np.mean(y),
+                'Variance': np.var(y),
+                'Standard Deviation': np.std(y),
+                'Minimum': np.min(y),
+                'Maximum': np.max(y),
+                'Mode': mode(y, keepdims=False).mode,
+                'Median': np.median(y),
+                'Skewness': skew(y),
+                'Kurtosis': kurtosis(y),
+                'Entropy': entropy(np.abs(y)),
+                'Dominant Frequency': get_dominant_frequency(y, fs),
+                'Sampling Frequency': fs
+            }
         all_features.append(features)
 
     window = tk.Toplevel()
@@ -192,7 +192,7 @@ def stadistics(y1, fs1, y2, fs2, y3, fs3):
 
     feature_keys = list(all_features[0].keys())
     for key in feature_keys:
-        row = [key] + [f"{features[key]:.4f}" for features in all_features]
+        row = [key] + [f"{features[key]:.4f}" if features[key] is not None else "NULL" for features in all_features]
         tree.insert('', 'end', values=row)
 
     tree.pack(fill="both", expand=True)
@@ -204,6 +204,23 @@ def verification(y: list[float] | np.ndarray)-> np.ndarray:
         messagebox.showwarning("Warning", "Value nan or inf deleted...")
         y = y[mask]
     return y
+
+def get_dominant_frequency(y: np.ndarray, fs: int) -> float:
+    if y is None or len(y) == 0:
+        return None
+
+    y = np.squeeze(y)
+
+    spectrum = np.fft.fft(y)
+    freqs = np.fft.fftfreq(len(y), d=1/fs)
+
+    positive_freqs = freqs[:len(freqs)//2]
+    positive_spectrum = np.abs(spectrum[:len(spectrum)//2])
+
+    idx = np.argmax(positive_spectrum)
+    dominant_freq = positive_freqs[idx]
+
+    return dominant_freq
 
 def show_features(features, title):
     root = tk.Toplevel()
