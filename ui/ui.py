@@ -19,6 +19,7 @@ class SignalProcessingApp:
         self.y3  = None
         self.n03 = None
         self.fs3 = None
+        self.type = None
 
         #Frame superior
         self.top_frame = ttk.Frame(root)
@@ -89,14 +90,7 @@ class SignalProcessingApp:
         self.amp_selector.pack(padx=5, pady=(0, 10))
         self.amp_selector.set(settings.opera_amp[5])
 
-        self.fa_var = self.create_labeled_entry(self.left_fixed_panel, "Analog Freq (Hz):", 5.0)
-        self.fs_var = self.create_labeled_entry(self.left_fixed_panel, "Sampling Freq (Hz):", 180.0)
-        self.gain_var = self.create_labeled_entry(self.left_fixed_panel, "Gain:", 1.0)
-        self.duration_var = self.create_labeled_entry(self.left_fixed_panel, "Duration: (s)", 2)
-        self.start_var = self.create_labeled_entry(self.left_fixed_panel, "start: (s)", 0)
-        self.t_shift_var = self.create_labeled_entry(self.left_fixed_panel, "Time Shift: (s)", 0)
-
-        ttk.Label(self.left_fixed_panel, text="Sampling").pack(pady=(0, 5))
+        ttk.Label(self.left_fixed_panel, text="Resampling").pack(pady=(0, 5))
         self.sampling_select = ttk.Combobox(
             self.left_fixed_panel,
             values=settings.sampling_method,
@@ -104,20 +98,28 @@ class SignalProcessingApp:
             width=10
         )
         self.sampling_select.pack(padx=5, pady=(0, 10))
+        self.sampling_select.bind("<<ComboboxSelected>>", self.handle_sampling)
         self.sampling_select.set(settings.sampling_method[2])
 
-        # Panel dinámico contenedor
+        self.fa_var = self.create_labeled_entry(self.left_fixed_panel, "Analog Freq (Hz):", 5)
+        self.fs_var = self.create_labeled_entry(self.left_fixed_panel, "Sampling Freq (Hz):", 180)
+        self.gain_var = self.create_labeled_entry(self.left_fixed_panel, "Gain:", 1)
+        self.duration_var = self.create_labeled_entry(self.left_fixed_panel, "Duration: (s)", 2)
+        self.start_var = self.create_labeled_entry(self.left_fixed_panel, "start: (s)", 0)
+        self.t_shift_var = self.create_labeled_entry(self.left_fixed_panel, "Time Shift: (s)", 0)
+
+        # Panel contenedor dinamico
         self.left_dynamic_panel = ttk.Frame(self.left_panel_container)
         self.left_dynamic_panel.pack(fill="both", expand=True)
 
-        # Subpaneles independientes
+        # Subpaneles
         self.left_dynamic_signal_panel = ttk.Frame(self.left_dynamic_panel)
         self.left_dynamic_signal_panel.pack(fill="x")
 
         self.up_dynamic_op_panel = ttk.Frame(self.top_frame)
         self.up_dynamic_op_panel.pack(fill="x")
 
-        # === Área de gráficas ===
+        #area de graficas
         self.plot_frame = ttk.LabelFrame(self.main_frame, text="Graph")
         self.plot_frame.pack(side="left", fill="both", expand=True)
 
@@ -222,37 +224,49 @@ class SignalProcessingApp:
             self.fourier_select.pack(side="left", pady=15, padx=5)
 
         elif operation_type == settings.operation_select[4]:
-            pass
+            self.cosine_select = ttk.Combobox(
+                self.up_dynamic_op_panel,
+                values=settings.cosine_operation,
+                state="readonly",
+                width=20
+            )
+            self.cosine_select.pack(side="left", pady=15, padx=5)
 
         elif operation_type == settings.operation_select[5]:
-            pass
+            try:
+                math.wavelet_transform(self.y1)
+            except:
+                messagebox.showwarning("Warning", "Invalid y1(n) function to calculate wavelet")
+            try:
+                math.wavelet_transform(self.y2)
+            except:
+                messagebox.showwarning("Warning", "Invalid y2(n) function to calculate wavelet")
 
     def record_audio(self):
-        amp = self.amp_selector.get()
-        sampling = self.sampling_select.get()
         duration = abs(float(self.duration_var.get()))
         signal = self.signal_selector.get()
         fs = abs(float(self.fs_var.get()))
         shift = float(self.t_shift_var.get())
         n0 = float(self.start_var.get())
+        self.type = settings.signal_types[0]
+
         try:
             n, y = audio_utils.record_audio(duration, fs, shift, n0)
-            self.handle_signal_parameters(amp, sampling, n, y, fs, n0, signal, duration, settings.signal_types[0])
+            self.handle_signal_parameters(n, y, fs, n0, duration, signal, settings.signal_types[0])
         except:
             messagebox.showwarning("Warning", "Recording failure.")
 
     def external_signal(self):
-        amp = self.amp_selector.get()
         baudrate = self.baudrate_selector.get()
-        sampling = self.sampling_select.get()
         duration = abs(float(self.duration_var.get()))
         signal = self.signal_selector.get()
         fs = abs(float(self.fs_var.get()))
         shift = float(self.t_shift_var.get())
         n0 = float(self.start_var.get())
+        self.type = settings.signal_types[1]
 
         n, y = file_manager.recibe_signal(baudrate, fs, n0, duration)
-        self.handle_signal_parameters(amp, n, y, fs, n0, signal, duration, settings.signal_types[1])
+        self.handle_signal_parameters(n, y, fs, n0, duration, signal, settings.signal_types[1])
         """try:
             n, y = file_manager.recibe_signal(baudrate, fs, n0, shift, duration)
             self.handle_signal_parameters(amp, sampling, n, y, fs, n0, signal, duration, signal)
@@ -260,31 +274,29 @@ class SignalProcessingApp:
             messagebox.showwarning("Warning", "Reading failure.")"""
 
     def load_audio(self):
-        amp = self.amp_selector.get()
-        sampling = self.sampling_select.get()
         duration = abs(float(self.duration_var.get()))
         signal = self.signal_selector.get()
         shift = float(self.t_shift_var.get())
         n0 = float(self.start_var.get())
+        self.type = settings.signal_types[0]
 
         try:
             n, y, fs, type= file_manager.load_audio_file(duration, shift, n0)
             if type == settings.audio_types[0]: 
-                self.handle_signal_parameters(amp, sampling, n[0], y[0], fs, n0, signal, duration, settings.signal_types[0])
+                self.handle_signal_parameters(n[0], y[0], fs, n0, duration, signal, settings.signal_types[0])
             else:
-                self.handle_signal_parameters(amp, sampling, n[0], y[0], fs, n0, settings.GRAPH[0], duration, settings.signal_types[0])
-                self.handle_signal_parameters(amp, sampling, n[0], y[0], fs, n0, settings.GRAPH[1], duration, settings.signal_types[0])
+                self.handle_signal_parameters(n[0], y[0], fs, n0, duration, settings.GRAPH[0], settings.signal_types[0])
+                self.handle_signal_parameters(n[0], y[0], fs, n0, duration, settings.GRAPH[1], settings.signal_types[0])
         except:
             messagebox.showwarning("Warning", "Fail loading audio.")
 
     def load_signal(self):
-        amp = self.amp_selector.get()
-        sampling = self.sampling_select.get()
         duration = abs(float(self.duration_var.get()))
         n0 = float(self.start_var.get())
+        self.type = settings.signal_types[1]
 
         n, y, fs = file_manager.load_signal(n0)
-        self.handle_signal_parameters(amp, n, y, fs, n0, settings.GRAPH[1], duration, settings.signal_types[1])
+        self.handle_signal_parameters(n, y, fs, n0, duration, settings.GRAPH[1], settings.signal_types[1])
 
         """try:
             n, y, fs = file_manager.load_signal(n0)
@@ -293,7 +305,6 @@ class SignalProcessingApp:
             messagebox.showwarning("Warning", "Fail loading signal.")"""
 
     def generate_synthetic(self):
-        amp = self.amp_selector.get()
         signal = self.signal_selector.get()
         synthetic = self.signal_synthetic.get()
         fa = abs(float(self.fa_var.get()))
@@ -302,10 +313,11 @@ class SignalProcessingApp:
         n0 = float(self.start_var.get())
         duration = abs(float(self.duration_var.get()))
         shift = float(self.t_shift_var.get())
+        self.type = settings.signal_types[1]
 
         try:
             n, y = generation.signal_selector(synthetic, fa, fs, gain, n0, duration, shift)
-            self.handle_signal_parameters(amp, n, y, fs, n0, signal, duration, settings.signal_types[1])
+            self.handle_signal_parameters(n, y, fs, n0, duration, signal, settings.signal_types[1])
         except:
             messagebox.showwarning("Warning", "Select signal first.")
 
@@ -329,6 +341,19 @@ class SignalProcessingApp:
                 self.n03, self.y3, self.fs3 = math.fourier_operation(fourier_action, x=self.y1, fs1=self.fs1, h=self.y2, fs2=self.fs2)
             except tk.TclError:
                 fourier_action = None
+
+        if hasattr(self, "cosine_select") and self.cosine_select.winfo_exists():
+            try:
+                cosine_action = self.cosine_select.get()
+                self.n03, self.y3, self.fs3 = math.cosine_operation(cosine_action, x=self.y1, fs1=self.fs1, h=self.y2, fs2=self.fs2)
+            except tk.TclError:
+                cosine_action = None
+        if hasattr(self, "wavelet_select") and self.wavelet_select.winfo_exists():
+            try:
+                wavelet_action = self.wavelet_select.get()
+                self.n03, self.y3, self.fs3 = math.fourier_operation(wavelet_action, x=self.y1, fs1=self.fs1, h=self.y2, fs2=self.fs2)
+            except tk.TclError:
+                wavelet_action = None
         """except:
             messagebox.showwarning("Warning", "Invalid operation")"""
 
@@ -341,25 +366,44 @@ class SignalProcessingApp:
             y3  = self.y3  if self.y3  is not None else [],
             fs3 = self.fs3 if self.fs3 is not None else  0)
         except:
-            messagebox.showwarning("Warning", "Select at least two functions")
+            messagebox.showwarning("Warning", "Invalid funtion to calculate statistics")
 
-    def handle_cosine_t(self):
-        pass
+    def handle_signal_parameters(self, n, y, fs, n0, duration, signal_name, type):
+        if hasattr(self, "amp_selector") and self.amp_selector.winfo_exists():
+            try:
+                amplitud_operation = self.amp_selector.get()
+                y = signal_utils.amplitud_selector(amplitud_operation, y)
+            except tk.TclError:
+                amplitud_operation = None
 
-    def handle_wavelet_t(self):
-        pass
+        if hasattr(self, "preprocessing_select") and self.preprocessing_select.winfo_exists():
+            try:
+                preprocessing_action = self.preprocessing_select.get()
+                y = math.preprocessing_operations(preprocessing_action, y)
+            except tk.TclError:
+                preprocessing_action = None
 
-    def handle_none(self):
-        pass
+        if signal_name == settings.GRAPH[0]:
+            self.y1, self.n1, self.fs1, self.n01 = y, n, fs, n0
+        elif signal_name == settings.GRAPH[1]:
+            self.y2, self.n2, self.fs2, self.n02 = y, n, fs, n0
 
-    def handle_signal_parameters(self, amp, n, y, fs, n0, signal_name, duration, type):
-        y = signal_utils.amplitud_selector(amp, y)
-        if hasattr(self, "sampling_select"):
-            sampling = self.sampling_select.get()
-            n , y = signal_utils.time_sampling(sampling ,y, n0, fs, type, duration)
-        if hasattr(self, "preprocessing_select"):
-            action = self.preprocessing_select.get()
-            y = math.preprocessing_operations(action, y)
+        self.plotter.update_plot(signal_name, n, y)
+
+    def handle_sampling(self, event=None):
+        signal_name = self.signal_selector.get()
+        y = self.y1 if signal_name == settings.GRAPH[0] else self.y2
+        fs = abs(int(self.fs_var.get()))
+        n0 = float(self.start_var.get())
+        duration = abs(float(self.duration_var.get()))
+        type = self.type
+
+        if hasattr(self, "sampling_select") and self.sampling_select.winfo_exists():
+            try:
+                sampling = self.sampling_select.get()
+                n , y = signal_utils.time_sampling(sampling ,y, fs, n0, duration, type)
+            except tk.TclError:
+                sampling = None
 
         if signal_name == settings.GRAPH[0]:
             self.y1, self.n1, self.fs1, self.n01 = y, n, fs, n0

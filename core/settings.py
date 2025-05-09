@@ -25,11 +25,11 @@ ax = [1.0, -2.474416174978162796804781464743427932262,  2.8110063119115822338756
 bx = [0.003279216306360205161751775193579305778 , 0.016396081531801026676120613956300076097 , 0.032792163063602053352241227912600152194 , 0.032792163063602053352241227912600152194 , 0.016396081531801026676120613956300076097 , 0.003279216306360205161751775193579305778 ]
 
 #Combobox Menu
-source_select = ["Microphone", "Audio File", "Synthetic", "Board"]
+source_select = ["Microphone", "Load File", "Synthetic", "Board"]
 
 control_select = ["Play x1", "Play x2", "Play both", "Play result", "Save"]
 
-operation_select = ["Basic operations", "Preprocessing", "Filtering", "Fourier Transform", "Cosine Transform", "Wavelet Transform"]
+operation_select = ["Basic operations", "Preprocessing", "Filtering", "Fourier Transform", "Cosine Transform", "Wavelet"]
 
 GRAPH = ["y1(n)", "y2(n)"]
 
@@ -49,6 +49,8 @@ preprocessing_operation = ["Normalization 0 & 1", "Normalization -1 & 1", "Stand
 filter_type = ["FIR Filter", "IIR Filter"]
 
 fourier_operation = ["DFT Magnitude/Phase", "DFT Filtering"]
+
+cosine_operation = ["Cosine Magnitude", "Cosine Filtering"]
 
 coeficients = ["ax", "bx"]
 

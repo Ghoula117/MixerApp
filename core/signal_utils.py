@@ -44,14 +44,18 @@ def amplitud_selector(name: str, signal: list[float] | np.ndarray)-> np.ndarray:
 
 def downsampling(signal, n0, fs, type, duration):
     k = abs(simpledialog.askinteger("Downsampling for integer k", "Value:",minvalue = 0, initialvalue=2))
-    y = signal[::k]
-    n = axis_time(len(signal), fs, n0, type, duration)
+    if k == 0:
+        y = np.zeros(len(signal))
+        y[:] = signal[0]
+    else:
+        y = signal[::k]
+    n = axis_time(len(y), fs, n0, type, duration)
     return n, y
 
 def upsampling(signal, n0, fs, type, duration):
     k = simpledialog.askinteger("Upsampling for integer k", "Value:",minvalue = 1 , initialvalue=3)
     y = np.zeros(len(signal) * k - (k-1))
-    n = axis_time(len(signal), fs, n0, type, duration)
+    n = axis_time(len(y), fs, n0, type, duration)
 
     y[::k] = signal
     for i in range(0, len(y)):
@@ -71,7 +75,7 @@ def sampling_none(signal, n0, fs, type, duration):
     n = axis_time(len(signal), fs, n0, type, duration)
     return n, np.asarray(signal)
 
-def time_sampling(name: str, signal: list[float] | np.ndarray, n0:int, fs:int, type:str, duration:float)-> tuple[np.ndarray, np.ndarray]:
+def time_sampling(name: str, signal: list[float] | np.ndarray, fs:int, n0:int, duration:float, type:str)-> tuple[np.ndarray, np.ndarray]:
     options = {
         settings.sampling_method[0]: downsampling,
         settings.sampling_method[1]: upsampling,

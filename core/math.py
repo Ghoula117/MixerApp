@@ -1,11 +1,14 @@
 import numpy as np
 import tkinter as tk
+import matplotlib.pyplot as plt
 from scipy.signal import lfilter, lfilter_zi
 from tkinter import messagebox, simpledialog
 from core import settings
 from core.plotter import ProcessedSignalPlot
 from core.signal_utils import resample_signal, signals_padding
 from core.file_manager import load_coeficients, load_signal
+from scipy.fftpack import dct, idct
+import pywt
 
 processed_plot = ProcessedSignalPlot()
 
@@ -210,7 +213,9 @@ def convolution(x, nx0, h, nh0):
         for k in range(Lh): 
             if 0 <= n - k < Lx:
                  y[n] += h[k] * x[n - k]
-    n = np.arange(yi, yf + 1)"""
+                 
+    n = np.arange(yi, yf + 1)
+    return n, y"""
 
     y = np.convolve(x, h)
     n = np.linspace(yi, yf, Ly)
@@ -224,6 +229,53 @@ def fourier_operation(action: str, **kwargs):
     }
     actions[action](**kwargs)
 
+def compute_fft(sig, fs):
+    N = len(sig)
+    X = np.fft.fft(sig)
+    freqs = np.fft.fftfreq(N, d=1/fs)
+    magnitude = np.abs(X)
+    phase = np.angle(X)
+    return np.fft.fftshift(freqs), np.fft.fftshift(magnitude), np.fft.fftshift(phase)
+
+def plot_fft_signals(x, h, fs):
+    plt.close('all')
+    f_x, mag_x, phase_x = compute_fft(x, fs)
+    f_h, mag_h, phase_h = compute_fft(h, fs)
+
+    plt.figure(figsize=(12, 8))
+
+    plt.subplot(2, 2, 1)
+    plt.plot(f_x, mag_x, color='blue')
+    plt.title('Magnitude Spectrum - x[n]')
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('|X(f)|')
+    plt.grid(True)
+
+    plt.subplot(2, 2, 2)
+    plt.plot(f_x, phase_x, color='orange')
+    plt.title('Phase Spectrum - x[n]')
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('Phase [rad]')
+    plt.grid(True)
+
+    plt.subplot(2, 2, 3)
+    mag_h_db = 20 * np.log10(mag_h + 1e-12) 
+    plt.plot(f_h, mag_h_db, color='green')
+    plt.title('Magnitude Spectrum (dB) - h[n]')
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('|H(f)| [dB]')
+    plt.grid(True)
+
+    plt.subplot(2, 2, 4)
+    plt.plot(f_h, phase_h, color='red')
+    plt.title('Phase Spectrum - h[n]')
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('Phase [rad]')
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
 def fourier_magnitude_phase(x, fs1, h, fs2):
     try:
         x_resampled, h_resampled, freq = resample_signal(x, fs1, h, fs2)
@@ -232,66 +284,7 @@ def fourier_magnitude_phase(x, fs1, h, fs2):
         messagebox.showwarning("Warning", "Select both signals.")
         return
 
-def plot_fft_signals(x, h, fs):
-    import matplotlib.pyplot as plt
-    plt.close('all')
-    def compute_fft(sig):
-        N = len(sig)
-        X = np.fft.fft(sig)
-        freqs = np.fft.fftfreq(N, d=1/fs)
-        magnitude = np.abs(X)
-        phase = np.angle(X)
-
-        # Center the spectrum
-        freqs_shifted = np.fft.fftshift(freqs)
-        magnitude_shifted = np.fft.fftshift(magnitude)
-        phase_shifted = np.fft.fftshift(phase)
-
-        return freqs_shifted, magnitude_shifted, phase_shifted
-
-    # Compute FFTs
-    f_x, mag_x, phase_x = compute_fft(x)
-    f_h, mag_h, phase_h = compute_fft(h)
-
-    plt.figure(figsize=(12, 8))
-
-    # x[n] Magnitude
-    plt.subplot(2, 2, 1)
-    plt.plot(f_x, mag_x, color='blue')
-    plt.title(f'Magnitude Spectrum - x[n]')
-    plt.xlabel('Frequency [Hz]')
-    plt.ylabel('|X(f)|')
-    plt.grid(True)
-
-    # x[n] Phase
-    plt.subplot(2, 2, 2)
-    plt.plot(f_x, phase_x, color='orange')
-    plt.title(f'Phase Spectrum - x[n]')
-    plt.xlabel('Frequency [Hz]')
-    plt.ylabel('Phase [rad]')
-    plt.grid(True)
-
-    # h[n] Magnitude
-    plt.subplot(2, 2, 3)
-    plt.plot(f_h, mag_h, color='green')
-    plt.title(f'Magnitude Spectrum - h[n]')
-    plt.xlabel('Frequency [Hz]')
-    plt.ylabel('|H(f)|')
-    plt.grid(True)
-
-    # h[n] Phase
-    plt.subplot(2, 2, 4)
-    plt.plot(f_h, phase_h, color='red')
-    plt.title(f'Phase Spectrum - h[n]')
-    plt.xlabel('Frequency [Hz]')
-    plt.ylabel('Phase [rad]')
-    plt.grid(True)
-
-    plt.tight_layout()
-    plt.show()
-
 def fourier_filtering(x, fs1, h, fs2):
-    import matplotlib.pyplot as plt
     plt.close('all')
     x_resampled, h_resampled, freq = resample_signal(x, fs1, h, fs2)
 
@@ -299,16 +292,15 @@ def fourier_filtering(x, fs1, h, fs2):
     x_pad = np.pad(x_resampled, (0, N - len(x_resampled)))
     h_pad = np.pad(h_resampled, (0, N - len(h_resampled)))
 
-    # FFT y filtrad
     X = np.fft.fft(x_pad)
     H = np.fft.fft(h_pad)
     Y = X * H
-    y = np.fft.ifft(Y).real[:len(x) + len(h_resampled) - 1]
+    y = np.fft.ifft(Y).real
+
     Y_fft = np.fft.fft(y)
     freqs = np.fft.fftfreq(len(Y_fft), d=1/freq)
 
     plt.figure(figsize=(10, 8))
-
     plt.specgram(x, Fs=freq, NFFT=256, noverlap=128, cmap='viridis')
     plt.title("Espectrogram - Signal Y1")
     plt.xlabel("Time (s)")
@@ -344,11 +336,83 @@ def fourier_filtering(x, fs1, h, fs2):
     plt.tight_layout()
     plt.show()
 
-def cosine_t():
-    pass
+def cosine_operation(action: str, **kwargs):
+    actions = {
+        settings.cosine_operation[0]: cosine_magnitude_phase,
+        settings.cosine_operation[1]: cosine_filtering,
+    }
+    actions[action](**kwargs)
 
-def wavelet_t():
-    pass
+def cosine_magnitude_phase(x, fs1, h, fs2):
+    plt.close('all')
+    x_resampled, h_resampled, freq_resampled = resample_signal(x, fs1, h, fs2)
+
+    dct_x = dct(x_resampled, norm='ortho')
+    freq_x = np.linspace(0, freq_resampled/2, len(dct_x))
+    dct_h = dct(h_resampled, norm='ortho')
+    freq_h = np.linspace(0, freq_resampled/2, len(dct_h))
+    
+    plt.figure(figsize=(10, 4))
+    plt.plot(freq_x, np.abs(dct_x))
+    plt.title("Magnitude T. Cosine x(n)")
+    plt.xlabel("Freq (Hz)")
+    plt.ylabel("Magnitude")
+
+    plt.figure(figsize=(10, 4))
+    plt.plot(freq_h, np.abs(dct_h))
+    plt.title("Magnitude T. Cosine h(n)")
+    plt.xlabel("Freq (Hz)")
+    plt.ylabel("Magnitude")
+
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+def cosine_filtering(signal, fs, cutoff=1000):
+    dct_signal = dct(signal, norm='ortho')
+
+    N = len(dct_signal)
+    freqs = np.linspace(0, fs/2, N)
+    filter_mask = freqs <= cutoff
+    dct_filtered = dct_signal * filter_mask
+
+    signal_filtered = idct(dct_filtered, norm='ortho')
+
+    t = np.arange(len(signal)) / fs
+
+    plt.figure(figsize=(12, 6))
+    plt.subplot(2, 1, 1)
+    plt.plot(t, signal, label='Original')
+    plt.plot(t, signal_filtered, label='Filter', linestyle='--')
+    plt.legend()
+    plt.title("Señal original vs filtrada (dominio temporal)")
+    plt.xlabel("Time [s]")
+
+    plt.subplot(2, 1, 2)
+    plt.plot(freqs, np.abs(dct_signal), label='DCT original')
+    plt.plot(freqs, np.abs(dct_filtered), label='DCT filtered', linestyle='--')
+    plt.legend()
+    plt.title("DCT original vs filter")
+    plt.xlabel("Freq (Hz)")
+    plt.tight_layout()
+    plt.show()
+
+def wavelet_transform(x):
+    plt.close('all')
+    wavelet = 'db6'
+    level = 3
+    coeffs = pywt.wavedec(x, wavelet, level=level)
+    labels = ['A3', 'D3', 'D2', 'D1']
+
+    plt.figure(figsize=(12, 8))
+    for i, coef in enumerate(coeffs):
+        plt.subplot(len(coeffs), 1, i + 1)
+        plt.plot(coef, color='teal')
+        plt.title(f'Wavelet Coefficients: {labels[i] if i < len(labels) else f"Detail {i}"}')
+        plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
 
 def generate_result(n, y):
     root = tk.Tk()
